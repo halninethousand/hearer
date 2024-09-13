@@ -1,0 +1,10 @@
+[package]
+name = "hearer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+midly = "0.5.3"
+midir = "0.10.0"
+piano_keyboard = "0.2.3"
+macroquad = "0.4.0"
