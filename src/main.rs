@@ -11,6 +11,11 @@ const PIANO_WIDTH: u16 = 1024;
 const KEY_HEIGHT: u16 = 106;
 // KEY_HEIGHT is 103 when adding the small and wide triangle heights of the white keys
 // PIANO_WIDTH is in pixels
+//
+fn is_point_in_rect(x: f32, y: f32, rect: &Rectangle) -> bool {
+    x >= rect.x as f32 && x <= (rect.x + rect.width) as f32 &&
+    y >= rect.y as f32 && y <= (rect.y + rect.height) as f32
+}
 
 fn window_conf() -> Conf {
     Conf {
@@ -62,17 +67,46 @@ async fn main() -> Result<(), Box<dyn Error>> {
         in_port_name
     );
 
+    let screen_width = screen_width();
+    let screen_height = screen_height();
+    let x_offset = (screen_width - PIANO_WIDTH as f32) / 2.0;
+    let y_offset = screen_height - KEY_HEIGHT as f32; 
+
     loop {
         clear_background(DARKGRAY);
 
         draw_text("Piano", 20.0, 20.0, 20.0, GRAY);
 
-        let screen_width = screen_width();
-        let screen_height = screen_height();
-        let x_offset = (screen_width - PIANO_WIDTH as f32) / 2.0;
-        let y_offset = screen_height - KEY_HEIGHT as f32; 
 
-        let pressed_keys = pressed_keys.lock().unwrap();
+        let mut pressed_keys = pressed_keys.lock().unwrap();
+
+        if is_mouse_button_pressed(MouseButton::Left) {
+            let (mouse_x, mouse_y) = mouse_position();
+            for (index, key) in keyboard.iter().enumerate() {
+                let midi_note = index as u8 + 21; // Assuming the lowest key is MIDI note 21 (A0)
+                match key {
+                    Element::BlackKey(rect) => {
+                        if is_point_in_rect(mouse_x - x_offset, mouse_y - y_offset, rect) {
+                            pressed_keys[midi_note as usize] = true;
+                        }
+                    },
+                    Element::WhiteKey{wide, small, blind} => {
+                        if is_point_in_rect(mouse_x - x_offset, mouse_y - y_offset, wide) ||
+                           is_point_in_rect(mouse_x - x_offset, mouse_y - y_offset, small) ||
+                           blind.as_ref().map_or(false, |edge| is_point_in_rect(mouse_x - x_offset, mouse_y - y_offset, edge)) {
+                           pressed_keys[midi_note as usize] = true;
+                        }
+                    },
+                }
+            }
+        }
+
+        // Release keys when mouse button is released
+        if is_mouse_button_released(MouseButton::Left) {
+            for pressed in pressed_keys.iter_mut() {
+                *pressed = false;
+            }
+        }
 
         for (index, key) in keyboard.iter().enumerate() {
             let midi_note = index as u8 + 21; // Assuming the lowest key is MIDI note 21 (A0)
